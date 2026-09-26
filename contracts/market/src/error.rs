@@ -12,7 +12,7 @@ use soroban_sdk::contracterror;
 /// - Arithmetic Errors: 60-69
 /// - Treasury Errors: 70-79
 /// - Reconciliation Errors: 80-89
-/// - Deployment Errors: 90-99
+/// - Conservation Errors: 90-99
 ///
 /// # Example
 /// ```ignore
@@ -74,6 +74,15 @@ pub enum ContractError {
     /// replayed close request) is rejected so callers cannot re-run the
     /// money-path side effects (settlement gating, event emission) twice.
     MarketAlreadyClosed = 8,
+
+    /// A settlement claim was submitted before the market was resolved.
+    ///
+    /// Claims are only valid once the oracle has resolved the market. This is
+    /// enforced contract-side (not by clients) so an untrusted caller cannot
+    /// bypass the resolve gate and drain liquidity against an unresolved
+    /// outcome. Fail-closed: the claim is rejected outright rather than
+    /// silently deferred.
+    ClaimBeforeResolve = 9,
 
     // ========== Position Errors (10-19) ==========
     /// User does not have enough collateral locked to perform this operation.
@@ -179,6 +188,18 @@ pub enum ContractError {
     /// Market metadata URI is invalid (e.g. exceeds the maximum length).
     InvalidMetadataUri = 37,
 
+    /// Market metadata URI does not use the `https` scheme (#889).
+    ///
+    /// Metadata URIs are restricted to an https-only allowlist. Any other
+    /// scheme — `http`, `ipfs`, `data`, `javascript`, `file`, or a scheme-less
+    /// / relative reference — is rejected outright. This is fail-closed: an
+    /// untrusted caller cannot smuggle in a non-https URI (e.g. a `javascript:`
+    /// payload for a frontend to execute) by relying on a permissive default.
+    ///
+    /// Distinct from `InvalidMetadataUri` (37), which covers length/emptiness
+    /// violations, so callers and metrics can tell the two failure modes apart.
+    MetadataUriSchemeNotAllowed = 40,
+
     /// Fee rate is invalid (e.g. exceeds the configured fee cap or is out of range).
     InvalidFeeRate = 38,
 
@@ -192,11 +213,7 @@ pub enum ContractError {
 
     /// Treasury address is invalid (e.g. contract address or zero address).
     ///
-    /// The admin-only `set_treasury` setter (#857) must receive a valid user
-    /// account address. Contract addresses and reserved/zero addresses are
-    /// rejected so fees cannot be routed to an address the admin does not
-    /// actually control.
-    InvalidTreasury = 40,
+    /// The admin-only `set_treasury` setter (
 
     // ========== Authorization Errors (41-49) ==========
     /// Caller is not authorized to perform this operation.
